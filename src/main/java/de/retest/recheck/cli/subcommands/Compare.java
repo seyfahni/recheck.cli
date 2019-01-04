@@ -8,7 +8,6 @@ import de.retest.recheck.execution.RecheckAdapters;
 import de.retest.recheck.execution.RecheckDifferenceFinder;
 import de.retest.recheck.persistence.RecheckReplayResultUtil;
 import de.retest.recheck.persistence.RecheckSutState;
-import de.retest.report.ActionReplayResult;
 import de.retest.report.SuiteReplayResult;
 import de.retest.report.TestReplayResult;
 import de.retest.ui.descriptors.SutState;
@@ -22,6 +21,10 @@ public class Compare implements Runnable {
 
 	@Option( names = { "-h", "--help" }, usageHelp = true, hidden = true )
 	private boolean displayHelp;
+
+	@Option( names = { "-a", "--add" },
+			description = "Add the comparison output to the resulting result file, rather than replacing it." )
+	private boolean addResult;
 
 	@Parameters( index = "0", description = "The first persisted state, being the 'expected' state during comparison." )
 	private File expectedState;
@@ -44,11 +47,13 @@ public class Compare implements Runnable {
 		final RecheckDifferenceFinder finder = new RecheckDifferenceFinder( adapter.getDefaultValueFinder(),
 				expectedState.getName(), expectedState.getPath() );
 
+		// TODO if -a, load replay result instead of creating a new one
 		final SuiteReplayResult suite = ReplayResultProvider.getInstance().getSuite( "Direct file comparison" );
 		final TestReplayResult replayResult = new TestReplayResult( "Comparing " + adapter.toString() + " files", 0 );
 		suite.addTest( replayResult );
-		final ActionReplayResult actionReplayResult = finder.findDifferences( actual, expected );
-		replayResult.addAction( actionReplayResult );
+
+		replayResult.addAction( finder.findDifferences( actual, expected ) );
+
 		RecheckReplayResultUtil.persist( suite, resultFile );
 	}
 
