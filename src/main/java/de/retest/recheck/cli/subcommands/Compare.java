@@ -44,8 +44,8 @@ public class Compare implements Runnable {
 		final RecheckDifferenceFinder finder = new RecheckDifferenceFinder( adapter.getDefaultValueFinder(),
 				expectedState.getName(), expectedState.getPath() );
 
-		final SuiteReplayResult suite = ReplayResultProvider.getInstance().getSuite( expectedState.getName() );
-		final TestReplayResult replayResult = new TestReplayResult( expectedState.getName(), 0 );
+		final SuiteReplayResult suite = ReplayResultProvider.getInstance().getSuite( "Direct file comparison" );
+		final TestReplayResult replayResult = new TestReplayResult( "Comparing " + adapter.toString() + " files", 0 );
 		suite.addTest( replayResult );
 		final ActionReplayResult actionReplayResult = finder.findDifferences( actual, expected );
 		replayResult.addAction( actionReplayResult );
