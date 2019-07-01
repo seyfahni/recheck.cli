@@ -33,7 +33,7 @@ public class IgnoreIT {
 				+ "                         otherwise a relative path is sufficient.\n"
 				+ "      --all            Ignore all differences from the given test report.\n"
 				+ "      --list           List all ignored elements.\n";
-		assertThat( new CommandLine( new Ignore() ).getUsageMessage() ).isEqualTo( expected );
+		assertThat( new CommandLine( new Ignore() ).getUsageMessage() ).isEqualToIgnoringNewLines( expected );
 	}
 
 	@Test
@@ -46,7 +46,7 @@ public class IgnoreIT {
 
 		cut.run();
 
-		assertThat( systemOutRule.getLog() ).isEqualTo( expected );
+		assertThat( systemOutRule.getLog() ).isEqualToIgnoringNewLines( expected );
 	}
 
 	@Test
@@ -58,7 +58,7 @@ public class IgnoreIT {
 
 		cut.run();
 
-		assertThat( systemOutRule.getLog() ).isEqualTo( expected );
+		assertThat( systemOutRule.getLog() ).isEqualToIgnoringNewLines( expected );
 	}
 
 	@Test
