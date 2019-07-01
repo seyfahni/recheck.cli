@@ -1,10 +1,13 @@
 package de.retest.recheck.cli.subcommands;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +28,13 @@ import de.retest.recheck.report.TestReportFilter;
 import de.retest.recheck.suite.flow.ApplyChangesToStatesFlow;
 import de.retest.recheck.suite.flow.CreateChangesetForAllDifferencesFlow;
 import de.retest.recheck.ui.descriptors.SutState;
+import de.retest.recheck.ui.diff.AttributeDifference;
+import de.retest.recheck.ui.diff.ElementIdentificationWarning;
+import de.retest.recheck.ui.review.ActionChangeSet;
+import de.retest.recheck.ui.review.AttributeChanges;
 import de.retest.recheck.ui.review.ReviewResult;
 import de.retest.recheck.ui.review.SuiteChangeSet;
+import de.retest.recheck.ui.review.TestChangeSet;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -66,15 +74,33 @@ public class Commit implements Runnable {
 			}
 			TestReportUtil.print( filteredTestReport, testReport );
 			final ReviewResult reviewResult = CreateChangesetForAllDifferencesFlow.create( filteredTestReport );
-			for ( final SuiteChangeSet suiteChangeSet : reviewResult.getSuiteChangeSets() ) {
-				applyChanges( createSutStatePersistence(), suiteChangeSet );
-			}
+			checkForWarningMessage( reviewResult );
+			logger.info( "Are you sure you want to continue? [Yes/No]" );
+			inputDataInformation( reviewResult );
 		} catch ( final IOException e ) {
 			logger.error( "An error occurred while loading the test report!", e );
 		} catch ( final KryoException e ) {
 			logger.error( "The report was created with another, incompatible recheck version.\r\n"
 					+ "Please, use the same recheck version to load a report with which it was generated." );
 			logger.debug( "StackTrace: ", e );
+		}
+	}
+
+	private void inputDataInformation( final ReviewResult reviewResult ) throws IOException {
+		final InputStreamReader inputStreamReader = new InputStreamReader( System.in );
+		final BufferedReader bufferedReader = new BufferedReader( inputStreamReader );
+		final String input = bufferedReader.readLine();
+		if ( input.toLowerCase().equals( "yes" ) ) {
+			for ( final SuiteChangeSet suiteChangeSet : reviewResult.getSuiteChangeSets() ) {
+				applyChanges( createSutStatePersistence(), suiteChangeSet );
+			}
+			bufferedReader.close();
+		} else if ( input.toLowerCase().equals( "no" ) ) {
+			logger.info( "No changes are applied!" );
+			bufferedReader.close();
+		} else {
+			logger.info( "Invalid input! Please try one more time:" );
+			inputDataInformation( reviewResult );
 		}
 	}
 
@@ -100,6 +126,39 @@ public class Commit implements Runnable {
 					"Please make sure that the given test report '{}' is within the corresponding project directory.",
 					testReport.getAbsolutePath() );
 		}
+	}
+
+	private void checkForWarningMessage( final ReviewResult changeSets ) {
+		for ( final SuiteChangeSet suiteChangeSet : changeSets.getSuiteChangeSets() ) {
+			for ( final TestChangeSet testChangeSet : suiteChangeSet.getTestChangeSets() ) {
+				final ActionChangeSet actionChangeSet = testChangeSet.getInitialStateChangeSet();
+				final AttributeChanges attributeChanges = actionChangeSet.getIdentAttributeChanges();
+				for ( final Set<AttributeDifference> attributeDifferences : attributeChanges.getChanges().values() ) {
+					for ( final AttributeDifference attributeDifference : attributeDifferences ) {
+						final ElementIdentificationWarning warning =
+								attributeDifference.getElementIdentificationWarning();
+						if ( warning != null ) {
+							logger.warn( getWarningMessage( attributeDifference, warning ) );
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private String getWarningMessage( final AttributeDifference attributeDifference,
+			final ElementIdentificationWarning warning ) {
+		final String title = "*************** recheck warning ***************";
+		final String elementIdentifier = attributeDifference.getKey();
+		final String expectedValue = attributeDifference.getExpectedToString();
+		final String actualValue = attributeDifference.getActualToString();
+		final String elementIdentifierInfo =
+				"The HTML " + elementIdentifier + " attribute used for element identification changed from "
+						+ expectedValue + " to " + actualValue + ".";
+		final String info = "recheck identified the element based on the persisted Golden Master.";
+		final String onApplyChangesInfo = "If you apply these changes to the Golden Master, your test "
+				+ warning.getTestClassName() + " will break.";
+		return title + "\n" + elementIdentifierInfo + "\n" + info + "\n" + onApplyChangesInfo;
 	}
 
 	private static Persistence<SutState> createSutStatePersistence() {
