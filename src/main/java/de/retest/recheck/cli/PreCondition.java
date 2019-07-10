@@ -15,14 +15,13 @@ public class PreCondition {
 	private PreCondition() {}
 
 	public static boolean isSatisfied() {
-		final boolean condition = ProjectRootFinderUtil.getProjectRoot() //
+		return ProjectRootFinderUtil.getProjectRoot() //
 				.map( Path::toFile ) //
 				.map( File::exists ) //
-				.orElse( false );
-		if ( !condition ) {
-			logger.warn( "Not a recheck project." );
-		}
-		return condition;
+				.orElseGet( () -> {
+					logger.warn( "Not a recheck project." );
+					return false;
+				} );
 	}
 
 }
